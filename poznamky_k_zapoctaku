@@ -1,0 +1,34 @@
+Car racing problem
+    * chceme se udržet na trati a jet co nejrychleji
+    * problém vstup 96*96*3
+        * nemám k dipozici konvoluční sítě
+            * možnost flatten -> moc vstupních neuronů
+        * podívám se na vstup
+            * vezmu si pouze pár kostiček před autem - okno šířka 11, délka 5 a podívám se, které pixely jsou trať a co
+              je něco jiného a zakóduji binárně: 0 - něco jiného, 1 - trať
+                * tedy na vstup 55 hodnot 0/1
+    * trénování - délka epizod
+        * chtěl jsem nechat autíčku co největší prostor pro jízdu, když jede pěkně, ale zase když vyjede z trasy a jede
+          někam dopryč nebo třeba nejede vůbec, tak to zaříznout
+        * super je v tomto, že dostávám reward průběžně, protože za každý frame dostávám -0.1, ale za každou
+          novou část trati, kterou projedu dostávám 1000/N, tedy dokáži říci, kdy jedu špatně a kdy dobře
+        * tedy jsem nastavil threshold na 25, kdy tedy když překročím 25 framů bez kladného rewardu, tak z toho
+          usuzuji, že jsem odjel někam pryč, nebo třeba jen stojím a utnu trénování, přičemž přidám -0.1*zbytek
+          epizod do fitness, aby to tedy nebylo výhodné
+        * nastavuji 25, protože když by vyjel a hned se vrátil, tak to není tak špatné a také může autíčko jet o něco pomaleji
+          a nechtěl jsem úplně zastavovat trénování pro autíčka, která jedou správně, ale pomalu
+
+     * architektura sítě 60-50-3
+     * 3 výstupní - směr, rychlost, brzda
+         * směr (-1, 1)
+         * rychlost (0, 1)
+         * brzda (0, 1)
+     * nynější problém - rychlé přepínání směru
+
+
+
+
+
+
+
+

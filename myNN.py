@@ -1,6 +1,6 @@
 import numpy as np
 
-ARCH = [9, 4]
+ARCH = [60, 50, 3]
 
 def logsig(xi):
     if xi.ndim <= 1:

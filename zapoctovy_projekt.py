@@ -59,14 +59,22 @@ def net_fitness(vec, agent):
     render = (rnd.random() < 0)
     return test_network(x, agent, render=render, max_negative_rewards_steps=100, seed=42)
 
+def gen_alg_callback(gen, max_gen, best_vec, fitness, agent):
+    print(f"Generation {gen + 1}/{max_gen}: {fitness}")
+    net = agent.vec_to_net(best_vec)
+    myNN.net_to_file(net, agent.nn_arch, f"net_{gen}.txt")
+
 def do_experiment(agent, repeat_count=1, verbose=False):
+    on_epoch_end_callback = lambda gen, max_gen, best_vec, fitness: gen_alg_callback(gen, max_gen, best_vec, fitness, agent) if verbose else None
+    fitness_fn = lambda vec: net_fitness(vec, agent)
+
     max_fitness = []
     best_people = []
     for i in range(repeat_count):
         if verbose:
             print(f"Starting experiment {i+1}/{repeat_count}")
 
-        x, y = EvoAlg.GenAlg(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), PopSize=51, MaxGen=60, u=0.05, verbose=verbose)
+        x, y = EvoAlg.GenAlg(fitness_fn, L=myNN.net_size(agent.nn_arch), PopSize=51, MaxGen=60, u=0.05, t=0.8, callback=on_epoch_end_callback)
         # x, y = EvoAlg.HillClimber(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), MaxGen=200, u=0.05, verbose=verbose)
         max_fitness.append(x)
         best_people.append(y)
@@ -104,8 +112,7 @@ def plot_fitness(max_fitness, show=True):
     if show:
         plt.show()
 
-def main():
-    agent = create_agent()
+def do_training(agent):
     max_fitness, best_people = do_experiment(agent, verbose=True)
     plot_fitness(max_fitness, True)
     
@@ -116,17 +123,24 @@ def main():
         if max_fitness[i][len(max_fitness) - 1] > nej:
             nej_pr = i
             nej = max_fitness[i][len(max_fitness) - 1]
-    net = agent.vec_to_net(best_people[nej_pr][len(max_fitness[nej_pr]) - 1])
-    
+    return agent.vec_to_net(best_people[nej_pr][len(max_fitness[nej_pr]) - 1])
+
+def do_final_evaluation(agent, net):
     print("Final evaluation")
     for _ in range(10):
         reward = test_network(net, agent, render=True, episode_length=25000)
         print(reward)
 
-    print(net)
-    myNN.net_to_file(net, agent.nn_arch, "net.txt")
+def main(load_path=None):
+    agent = create_agent()
+    
+    if load_path is None:
+        net = do_training(agent)
+    else:
+        net, _ = myNN.file_to_net(load_path) # assuming same agent architecture
+    
+    do_final_evaluation(agent, net)
 
-    net, arch = myNN.file_to_net("net.txt")
-    print(net, arch)
-
-main()
+# load_path = None 
+load_path = "net_1.txt"
+main(load_path)

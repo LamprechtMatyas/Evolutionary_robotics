@@ -82,18 +82,14 @@ def Crossover(i2, c):
     return i2
 
 
-def GenAlg(FitFnc, MaxGen=333, PopSize=15, L=50, t=0.98, u=0.1, m=0.9, c=0.7, verbose=False):
+def GenAlg(FitFnc, MaxGen=333, PopSize=15, L=50, t=0.98, u=0.1, m=0.9, c=0.7, callback=None):
     pop = MatrixCreate(PopSize, L)
     max_fitness = []   # sem si budu ukládat hodnoty nejlepší fitness
     Genes = []         # a sem nejlepší jedince
     for gen in range(MaxGen):
-        if verbose:
-            print(f"Starting generation {gen + 1}/{MaxGen}")
         fitness = ComputeFittness(FitFnc, pop)
         best_jedinec = pop[np.argmax(fitness)]
         max_fit = fitness[np.argmax(fitness)]
-        if verbose:
-            print(f"\tMax fitness: {max_fit}")
         max_fitness.append(max_fit)
         Genes.append(best_jedinec)
         pop = TourSel(pop, fitness, t)
@@ -105,6 +101,8 @@ def GenAlg(FitFnc, MaxGen=333, PopSize=15, L=50, t=0.98, u=0.1, m=0.9, c=0.7, ve
         pop = Mutate(new_pop, u, m)
         pop = np.vstack([best_jedinec, pop])
         pop = np.clip(pop, -1, 1)               # dostanu hodnoty do rozmezí <-1,1>
+        if callback is not None:
+            callback(gen, MaxGen, best_jedinec, max_fit)
     return max_fitness, Genes
 
 

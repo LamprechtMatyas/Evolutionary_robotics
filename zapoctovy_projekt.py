@@ -9,12 +9,15 @@ import EvoAlg
 import myNN
 import CarRacingTools
 
-env = gym.make("CarRacing-v0")
+env = gym.make("CarRacing-v0", verbose=0)
 
-def test_network(net, action_fn, render=True, episode_length=1000, max_negative_rewards_steps=25):
-    # Each of these is its own game.
-    rwrds = []
-    for episode in range(1):
+
+def test_network(net, agent, render=True, episodes=1, verbose=False, episode_length=1000, max_negative_rewards_steps=None):
+    if max_negative_rewards_steps is None:
+        max_negative_rewards_steps = episode_length
+
+    rewards = []
+    for episode in range(episodes):
         negative_rewards_steps = 0
         total_reward = 0
 
@@ -23,9 +26,9 @@ def test_network(net, action_fn, render=True, episode_length=1000, max_negative_
             if render:
                 env.render()
 
-            action = action_fn(net, observation)
+            action = agent.action_fn(net, observation)
 
-            observation, reward, done, info = env.step(action)
+            observation, reward, done, _ = env.step(action)
             total_reward += reward
 
             if reward > 0:
@@ -38,72 +41,88 @@ def test_network(net, action_fn, render=True, episode_length=1000, max_negative_
                 done = True
 
             if done:
-                print(f"Done after {t} steps")
+                if verbose:
+                    print(f"Done after {t} steps")
                 break
 
-        print('Obtained reward:', total_reward)
+        if verbose:
+            print('Obtained reward:', total_reward)
 
-    return total_reward
+        rewards.append(total_reward)
 
+    return np.mean(rewards)
 
-def GetActionByCarPicture(net, observation):
-    beg_y, beg_x = CarRacingTools.find_beginning_of_car(observation)
-    if beg_y != -1:
-        z = observation[beg_y-6: beg_y-1, beg_x-5:beg_x+7, :]
-        track_array = CarRacingTools.state_to_track(z)
-        action = myNN.net_out(net, track_array.reshape(-1), 0.3)
-        action[0] = action[0] * 2 - 1
-        #if (action[0] > -0.05) and (action[0] < 0.05):
-        #    action[0] = 0
-        #if ((last_action < 0) and (action[0] > 0)) or ((last_action > 0) and (action[0] < 0)):
-        #    total_reward -= 0.02
-    else:
-        action = [0, 0.5, 0]
+def net_fitness(vec, agent):
+    x = agent.vec_to_net(vec)
+    render = (rnd.random() < 0.01)
+    return test_network(x, agent, render=render, max_negative_rewards_steps=100)
 
-    return action
+def do_experiment(agent, repeat_count=1, verbose=False):
+    max_fitness = []
+    best_people = []
+    for i in range(repeat_count):
+        if verbose:
+            print(f"Starting experiment {i+1}/{repeat_count}")
 
-myNN.COEF = 5
-ARCH = [12*5, 50, 3]
-COEF = 5
+        x, y = EvoAlg.GenAlg(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), PopSize=25, MaxGen=200, u=0.05, verbose=verbose)
+        # x, y = EvoAlg.HillClimber(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), MaxGen=200, u=0.05, verbose=verbose)
+        max_fitness.append(x)
+        best_people.append(y)
+    return max_fitness, best_people
 
-def NetFitnessCartPoleByCarPicture(v):
-    x = myNN.vec_to_net(v, ARCH, COEF)
-    render = (rnd.random() < 0)
-    return test_network(x, GetActionByCarPicture, render=render)
+def create_agent():
+    # input_transformation = CarRacingTools.CarBoxTransformation()
+    input_transformation = CarRacingTools.DownsamplingTransformation(4)
 
+    # output_transformation = CarRacingTools.ContinuousActionTransformation()
+    output_transformation = CarRacingTools.DiscreteActionTransformation()
 
+    hidden_layer_size = 50
+    logsig_lambda = 0.3
+    weight_coef = 5
 
+    return CarRacingTools.CarRacingAgentArchitecture(
+        input_transformation,
+        output_transformation,
+        hidden_layer_size,
+        weight_coef,
+        logsig_lambda
+    )
 
-myNN.ARCH = ARCH
-# res = [EvoAlg.HillClimber(NetFitnessCartPoleByCarPicture, MaxGen=200, u=0.05) for i in range(2)]
-max_fitness = []
-best_people = []
-for i in range(1):
-    x, y = EvoAlg.GenAlg(NetFitnessCartPoleByCarPicture, L=myNN.net_size(ARCH), PopSize=15, MaxGen=20, u=0.05)
-    max_fitness.append(x)
-    best_people.append(y)
-    print(i)
+def plot_fitness(max_fitness, show=True):
+    x = np.arange(len(max_fitness[0]))
+    for fr in max_fitness:
+        plt.plot(x, fr)
+    plt.title("Vývoj fitness v 5 behoch")
+    plt.xlabel("Generácia")
+    plt.ylabel("Fitness")
+    # plt.ylim(0,1)
+    if show:
+        plt.show()
 
-x = np.arange(len(max_fitness[0]))
-for fr in max_fitness:
-    plt.plot(x, fr)
-plt.title("Vývoj fitness v 5 behoch Genetic Algoritmu")
-plt.xlabel("Generácia")
-plt.ylabel("Fitness")
-plt.show()
-# plt.ylim(0,1)
+def main():
+    agent = create_agent()
+    max_fitness, best_people = do_experiment(agent, verbose=True)
+    plot_fitness(max_fitness, True)
+    
 
-nej = -1000
-nej_pr = 0
-for i in range(len(max_fitness)):
-    if max_fitness[i][len(max_fitness) - 1] > nej:
-        nej_pr = i
-        nej = max_fitness[i][len(max_fitness) - 1]
-net = myNN.vec_to_net(best_people[nej_pr][len(max_fitness[nej_pr]) - 1])
-for i in range(10):
-    print(test_network(net, GetActionByCarPicture, render=True, episode_length=25000))
+    nej = -1000
+    nej_pr = 0
+    for i in range(len(max_fitness)):
+        if max_fitness[i][len(max_fitness) - 1] > nej:
+            nej_pr = i
+            nej = max_fitness[i][len(max_fitness) - 1]
+    net = agent.vec_to_net(best_people[nej_pr][len(max_fitness[nej_pr]) - 1])
+    
+    print("Final evaluation")
+    for _ in range(10):
+        reward = test_network(net, agent, render=True, episode_length=25000)
+        print(reward)
 
-print(net)
-myNN.net_to_file(ARCH, net, "net.txt")
+    print(net)
+    myNN.net_to_file(net, agent.nn_arch, "net.txt")
 
-print(myNN.file_to_net("net2.txt"))
+    net, arch = myNN.file_to_net("net.txt")
+    print(net, arch)
+
+main()

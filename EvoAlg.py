@@ -24,7 +24,7 @@ def MatrixPerturb(v, u):
     return new_v
 
 
-def HillClimber(FitFnc, MaxGen=5000, u=0.05, L=50):
+def HillClimber(FitFnc, MaxGen=5000, u=0.05, L=50, verbose=False):
     # FitFnc is the maximazed fitness function
     # gradient optimizer;
     # MaxGen is the number of generation
@@ -34,7 +34,7 @@ def HillClimber(FitFnc, MaxGen=5000, u=0.05, L=50):
     Genes = []
     parent = MatrixCreate(1,L)
     parentFitness = FitFnc(parent)
-    for currentGeneration in range(0,MaxGen):
+    for currentGeneration in range(MaxGen):
         fitnesses.append(parentFitness)
         Genes.append(parent[0])
         child = MatrixPerturb(parent,u)
@@ -42,6 +42,8 @@ def HillClimber(FitFnc, MaxGen=5000, u=0.05, L=50):
         if (childFitness > parentFitness):
             parent = child
             parentFitness = childFitness
+            if verbose:
+                print(f"Generation\t{currentGeneration+1}\tNew best\t{parentFitness}")
     return fitnesses, Genes
 
 
@@ -56,16 +58,10 @@ def TourSel(Pop, F, t):
     new_pop = []
     for i in range(len(Pop) - 1):
         samples = random.sample(range(len(Pop)), 2)
-        if random.uniform(0, 1) <= t:
-            if F[samples[0]] > F[samples[1]]:
-                new_pop.append(Pop[samples[0]])
-            else:
-                new_pop.append(Pop[samples[1]])
+        if (F[samples[0]] > F[samples[1]]) == (random.uniform(0, 1) <= t):
+            new_pop.append(Pop[samples[0]])
         else:
-            if F[samples[0]] < F[samples[1]]:
-                new_pop.append(Pop[samples[0]])
-            else:
-                new_pop.append(Pop[samples[1]])
+            new_pop.append(Pop[samples[1]])
     return new_pop
 
 
@@ -86,15 +82,19 @@ def Crossover(i2, c):
     return i2
 
 
-def GenAlg(FitFnc, MaxGen=333, PopSize=15, L=50, t=0.98, u=0.1, m=0.9, c=0.7):
+def GenAlg(FitFnc, MaxGen=333, PopSize=15, L=50, t=0.98, u=0.1, m=0.9, c=0.7, verbose=False):
     pop = MatrixCreate(PopSize, L)
     max_fitness = []   # sem si budu ukládat hodnoty nejlepší fitness
     Genes = []         # a sem nejlepší jedince
-    for _ in range(MaxGen):
-        print("Ahoj")
+    for gen in range(MaxGen):
+        if verbose:
+            print(f"Starting generation {gen + 1}/{MaxGen}")
         fitness = ComputeFittness(FitFnc, pop)
         best_jedinec = pop[np.argmax(fitness)]
-        max_fitness.append(fitness[np.argmax(fitness)])
+        max_fit = fitness[np.argmax(fitness)]
+        if verbose:
+            print(f"\tMax fitness: {max_fit}")
+        max_fitness.append(max_fit)
         Genes.append(best_jedinec)
         pop = TourSel(pop, fitness, t)
         new_pop = []

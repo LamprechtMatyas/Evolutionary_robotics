@@ -1,7 +1,5 @@
 import numpy as np
 
-ARCH = [60, 50, 3]
-
 def logsig(xi, lam=1):
     # OMo: Nestačí toto?:
     #
@@ -29,33 +27,27 @@ def net_out(w, x, lam=1):
     return x
 
 
-def net_size(arch=ARCH):
+def net_size(arch):
     total = 0
     for i in range(len(arch)-1):
         total += (arch[i] + 1) * arch[i+1]
     return total
 
 
-def vec_to_net(vec, arch=None, coef=None):
+def vec_to_net(vec, arch, coef):
     # vec is a 1D vector of weights
     # return network as a list of arrays containing weights corresponding to the architecture arch
     vec = vec.flatten()
-    global ARCH
-    if arch == None:
-        arch = ARCH
-    global COEF
-    if coef == None:
-        coef = COEF
     net = []
     num = 0
     for i in range(len(arch) - 1):
         new_num = num + (arch[i] + 1) * arch[i+1]
-        layer = coef*np.array(vec[num:new_num]).reshape(arch[i]+1, arch[i+1])
+        layer = coef * np.array(vec[num:new_num]).reshape(arch[i]+1, arch[i+1])
         net.append(layer)
         num = new_num
     return net
 
-def net_to_file(arch, net, filepath):
+def net_to_file(net, arch, filepath):
     with open(filepath, "w") as f:
         f.write("\t".join(map(str, arch)) + "\n")
         for layer in net:
@@ -65,10 +57,9 @@ def net_to_file(arch, net, filepath):
 
 
 def file_to_net(filepath):
-    global ARCH
     with open(filepath, "r") as f:
-        net = []
         arch = list(map(int, f.readline().split("\t")))
+        net = []
         prev = None
         for layerSize in arch:
             if prev is not None:
@@ -79,8 +70,7 @@ def file_to_net(filepath):
                     layer[y, :] = list(map(float, f.readline().split("\t")))
                 net.append(layer)
             prev = layerSize
-    ARCH = arch
-    return net
+    return net, arch
 
 
 

@@ -12,7 +12,7 @@ import CarRacingTools
 env = gym.make("CarRacing-v0", verbose=0)
 
 
-def test_network(net, agent, render=True, episodes=1, verbose=False, episode_length=1000, max_negative_rewards_steps=None):
+def test_network(net, agent, render=True, episodes=1, verbose=False, episode_length=1000, max_negative_rewards_steps=None, seed=None):
     if max_negative_rewards_steps is None:
         max_negative_rewards_steps = episode_length
 
@@ -21,6 +21,8 @@ def test_network(net, agent, render=True, episodes=1, verbose=False, episode_len
         negative_rewards_steps = 0
         total_reward = 0
 
+        if seed is not None:
+            env.seed(seed)
         observation = env.reset()
         for t in range(episode_length):
             if render:
@@ -54,8 +56,8 @@ def test_network(net, agent, render=True, episodes=1, verbose=False, episode_len
 
 def net_fitness(vec, agent):
     x = agent.vec_to_net(vec)
-    render = (rnd.random() < 0.01)
-    return test_network(x, agent, render=render, max_negative_rewards_steps=100)
+    render = (rnd.random() < 0)
+    return test_network(x, agent, render=render, max_negative_rewards_steps=100, seed=42)
 
 def do_experiment(agent, repeat_count=1, verbose=False):
     max_fitness = []
@@ -64,7 +66,7 @@ def do_experiment(agent, repeat_count=1, verbose=False):
         if verbose:
             print(f"Starting experiment {i+1}/{repeat_count}")
 
-        x, y = EvoAlg.GenAlg(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), PopSize=25, MaxGen=200, u=0.05, verbose=verbose)
+        x, y = EvoAlg.GenAlg(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), PopSize=51, MaxGen=60, u=0.05, verbose=verbose)
         # x, y = EvoAlg.HillClimber(lambda vec: net_fitness(vec, agent), L=myNN.net_size(agent.nn_arch), MaxGen=200, u=0.05, verbose=verbose)
         max_fitness.append(x)
         best_people.append(y)

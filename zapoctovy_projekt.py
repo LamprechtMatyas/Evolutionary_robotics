@@ -72,14 +72,16 @@ def do_experiment(agent, repeat_count=1, verbose=False):
 
 def create_agent():
     # input_transformation = CarRacingTools.CarBoxTransformation()
-    input_transformation = CarRacingTools.DownsamplingTransformation(4)
+    input_transformation = CarRacingTools.DownsamplingTransformation(stride=8)
+
+    input_transformation = CarRacingTools.TimeTransformationWrapper(input_transformation, steps_count=4)
 
     # output_transformation = CarRacingTools.ContinuousActionTransformation()
     output_transformation = CarRacingTools.DiscreteActionTransformation()
 
     hidden_layer_size = 50
-    logsig_lambda = 0.3
-    weight_coef = 5
+    logsig_lambda = 1
+    weight_coef = 10
 
     return CarRacingTools.CarRacingAgentArchitecture(
         input_transformation,
@@ -93,7 +95,7 @@ def plot_fitness(max_fitness, show=True):
     x = np.arange(len(max_fitness[0]))
     for fr in max_fitness:
         plt.plot(x, fr)
-    plt.title("Vývoj fitness v 5 behoch")
+    plt.title("Vývoj fitness")
     plt.xlabel("Generácia")
     plt.ylabel("Fitness")
     # plt.ylim(0,1)

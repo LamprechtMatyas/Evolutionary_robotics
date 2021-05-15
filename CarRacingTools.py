@@ -70,6 +70,23 @@ class DownsamplingTransformation(InputTransformation):
     def __call__(self, observation):
         return state_to_track(observation[self.slices, self.slices, :]).reshape(-1)
 
+class TimeTransformationWrapper(InputTransformation):
+    """
+    Input transformation wrapper: keeps history for several steps.
+    """
+    def __init__(self, inner_transformation, steps_count):
+        assert steps_count > 0
+        super().__init__(inner_transformation.input_vector_size * steps_count)
+        self.inner_transformation = inner_transformation
+        self.history = np.zeros(shape=(self.input_vector_size))
+        self.ix_14, self.ix_34 = inner_transformation.input_vector_size, inner_transformation.input_vector_size * (steps_count - 1)
+
+    def __call__(self, observation):
+        self.history[:self.ix_34] = self.history[self.ix_14]
+        self.history[self.ix_34:] = self.inner_transformation(observation)
+        return self.history.copy()
+
+
 class OutputTransformation:
     """
     Base class for transformation: NN output -> action.

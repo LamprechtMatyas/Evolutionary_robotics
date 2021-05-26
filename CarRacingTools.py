@@ -1,6 +1,7 @@
 import numpy as np
 
 import myNN
+import os
 
 
 def find_beginning_of_car(arr):
@@ -23,7 +24,7 @@ def state_to_track(arr):
     """
     Detects pixels containing track.
     """
-    return np.amin((arr > 98) & (arr < 120), axis=2).astype(np.int8)
+    return np.amin((arr > (98 / 255)) & (arr < (120 / 255)), axis=2).astype(np.int8)
 
 
 class InputTransformation:
@@ -32,6 +33,9 @@ class InputTransformation:
     """
     def __init__(self, input_vector_size):
         self.input_vector_size = input_vector_size
+
+    def reset(self):
+        pass
 
     def __call__(self, observation):
         pass
@@ -52,10 +56,12 @@ class CarBoxTransformation(InputTransformation):
 
     def __call__(self, observation):
         y, x = find_beginning_of_car(observation)
-        if y != -1:
+
+        if y == -1:
+            box = np.zeros((self.y_max-self.y_min, self.x_max-self.x_min, 3))
+        else:
             box = observation[(y+self.y_min):(y+self.y_max), (x+self.x_min):(x+self.x_max), :]
-            return state_to_track(box).reshape(-1)
-        return None
+        return state_to_track(box).reshape(-1)
 
 class DownsamplingTransformation(InputTransformation):
     """
@@ -70,6 +76,41 @@ class DownsamplingTransformation(InputTransformation):
     def __call__(self, observation):
         return state_to_track(observation[self.slices, self.slices, :]).reshape(-1)
 
+class SensorDistancesTransformation(InputTransformation):
+    """
+    Input transformation: sensor detecting distances to track.
+    """
+    def __init__(self):
+        super().__init__(5)
+
+    def __call__(self, observation):
+        result = np.zeros((5))
+
+        track = state_to_track(observation)
+
+        for ix, delta_y, delta_x in [(0, 0, -1), (1, -1, -1), (2, -1, 0), (3, -1, 1), (4, 0, 1)]:
+            y, x = 70, 48
+            gone_on_track = False
+
+            while True:
+                y += delta_y
+                x += delta_x
+
+                if not (x >= 0 and x < 96 and y >= 0):
+                    break
+
+                if (track[y, x] == 1):
+                    gone_on_track = True
+                else:
+                    if gone_on_track:
+                        break
+
+            distance = 0 if not gone_on_track else (((y - 70) ** 2) + (x - 48) ** 2) ** 0.5
+
+            result[ix] = distance
+
+        return result
+
 class TimeTransformationWrapper(InputTransformation):
     """
     Input transformation wrapper: keeps history for several steps.
@@ -81,10 +122,14 @@ class TimeTransformationWrapper(InputTransformation):
         self.history = np.zeros(shape=(self.input_vector_size))
         self.ix_14, self.ix_34 = inner_transformation.input_vector_size, inner_transformation.input_vector_size * (steps_count - 1)
 
-    def __call__(self, observation):
+    def reset(self):
+        self.history = np.zeros(shape=(self.input_vector_size))
+
+    def __call__(self, observation):       
         self.history[:self.ix_34] = self.history[self.ix_14]
         self.history[self.ix_34:] = self.inner_transformation(observation)
-        return self.history.copy()
+        result = self.history.copy()
+        return result
 
 
 class OutputTransformation:
@@ -94,6 +139,9 @@ class OutputTransformation:
     def __init__(self, output_vector_size, default_action):
         self.output_vector_size = output_vector_size
         self.default_action = default_action
+
+    def reset(self):
+        pass
 
     def __call__(self, output):
         pass
@@ -154,6 +202,10 @@ class CarRacingAgentArchitecture:
         self.weight_coef = weight_coef
         self.logsig_lambda = logsig_lambda
         self.nn_arch = [self.input_transformation.input_vector_size, self.hidden_layer_size, self.output_transformation.output_vector_size]
+
+    def reset(self):
+        self.input_transformation.reset()
+        self.output_transformation.reset()
 
     def action_fn(self, net, observation):
         net_input = self.input_transformation(observation)
